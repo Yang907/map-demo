@@ -3,15 +3,7 @@ import View from "ol/View"; // 地图视图方法
 import Feature from "ol/Feature";
 import { Tile as TileLayer, Vector as VectorLayer } from "ol/layer"; // 瓦片渲染方法
 import { XYZ, OSM } from "ol/source"; // 瓦片资源
-import { onMounted, ref } from "vue";
 import { ScaleLine, defaults as defaultControls } from "ol/control";
-import {
-  Crop,
-  CirclePlus,
-  Remove,
-  Aim,
-  Position,
-} from "@element-plus/icons-vue";
 import { Draw } from "ol/interaction";
 import { Vector as VectorSource } from "ol/source";
 import { Style, Stroke, Fill, Circle, Icon } from "ol/style";
@@ -20,7 +12,7 @@ import geometry from "./data/trajectory";
 
 import { transform, fromLonLat } from "ol/proj";
 
-export default class {
+export default class olMap {
   constructor() {
     this.initMap();
   }
@@ -37,19 +29,41 @@ export default class {
   timer = null as any;
   routeIndex = 0;
 
+  // 地图资源图层
   tileLayer = new TileLayer({
-    // 加载瓦片资源
-
     // source: new OSM(), //不建议使用，实际开发中会有问题
     source: new XYZ({
       url: "http://wprd0{1-4}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&style=7&x={x}&y={y}&z={z}", // 高德瓦片资源
     }),
   });
 
+  // 区域绘制图层
+  vectorLayer = new VectorLayer({
+    source: this.source,
+    style: new Style({
+      fill: new Fill({
+        //填充样式
+        color: "rgba(252,85,49, 0.2)",
+      }),
+      stroke: new Stroke({
+        //线样式
+        color: "#fc5531",
+        width: 2,
+      }),
+      image: new Circle({
+        //点样式
+        radius: 7,
+        fill: new Fill({
+          color: "#fc5531",
+        }),
+      }),
+    }),
+  });
+
   // 实例化地图
   initMap() {
     this.map = new Map({
-      layers: [this.tileLayer],
+      layers: [this.tileLayer, this.vectorLayer], // 图层
       view: new View({
         projection: "EPSG:4326", //坐标类型：EPSG：4326：经纬度坐标，EPSG:3857：投影坐标
         center: [104.07, 30.6], //地图中心点
@@ -72,30 +86,6 @@ export default class {
         }),
       ]),
     });
-    // 区域绘制图层
-    var vectorLayer = new VectorLayer({
-      source: this.source,
-      style: new Style({
-        fill: new Fill({
-          //填充样式
-          color: "rgba(252,85,49, 0.2)",
-        }),
-        stroke: new Stroke({
-          //线样式
-          color: "#fc5531",
-          width: 2,
-        }),
-        image: new Circle({
-          //点样式
-          radius: 7,
-          fill: new Fill({
-            color: "#fc5531",
-          }),
-        }),
-      }),
-    });
-    //将绘制层添加到地图容器中
-    this.map.addLayer(vectorLayer);
   }
 
   // 缩小
