@@ -1,6 +1,14 @@
 <template>
   <div class="ol-map" id="map"></div>
   <div class="tool">
+    <div class="tool-item" @click="showMarker()">
+      <el-icon :size="20"><Location /></el-icon
+      ><span class="operation">点位标注</span>
+    </div>
+    <div class="tool-item" @click="changeLayer()">
+      <el-icon :size="20"><HelpFilled /></el-icon
+      ><span class="operation">图层切换</span>
+    </div>
     <div class="tool-item" @click="addTrack()">
       <el-icon :size="20"><Position /></el-icon
       ><span class="operation">轨迹回放</span>
@@ -22,6 +30,12 @@
       ><span class="operation">缩小</span>
     </div>
   </div>
+  <div id="popup" class="ol-popup">
+    <a href="#" id="popup-closer" class="ol-popup-closer"></a>
+    <div id="popup-title" class="popup-title"></div>
+    <div id="popup-content" class="popup-content"></div>
+  </div>
+  <div id="info_popup"></div>
 </template>
 
 <script setup lang="ts">
@@ -33,7 +47,10 @@ import {
   Remove,
   Aim,
   Position,
+  HelpFilled,
+  Location,
 } from "@element-plus/icons-vue";
+import markers from "./data/marker";
 
 const map = ref();
 
@@ -57,12 +74,21 @@ const drawPolygon = () => {
   map.value.drawPolygon();
 };
 
+// 改变图层
+const changeLayer = () => {
+  map.value.changeMapLayer();
+};
+
 //添加矢量图层
 const addTrack = async () => {
   //画轨迹线
   await map.value.drawLine();
   //开始动
   map.value.moveStart();
+};
+
+const showMarker = () => {
+  map.value.polymerization(markers);
 };
 
 onMounted(() => {

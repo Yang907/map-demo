@@ -1,12 +1,13 @@
 import Map from "ol/Map"; // 地图实例方法
 import View from "ol/View"; // 地图视图方法
 import Feature from "ol/Feature";
+import Overlay from "ol/Overlay";
 import { Tile as TileLayer, Vector as VectorLayer } from "ol/layer"; // 瓦片渲染方法
 import { XYZ, OSM } from "ol/source"; // 瓦片资源
 import { ScaleLine, defaults as defaultControls } from "ol/control";
-import { Draw } from "ol/interaction";
-import { Vector as VectorSource } from "ol/source";
-import { Style, Stroke, Fill, Circle, Icon } from "ol/style";
+import { Draw, Modify } from "ol/interaction";
+import { Vector as VectorSource, Cluster } from "ol/source";
+import { Style, Stroke, Fill, Circle, Icon, Text } from "ol/style";
 import { LineString, Point } from "ol/geom";
 import geometry from "./data/trajectory";
 
@@ -28,13 +29,24 @@ export default class olMap {
 
   timer = null as any;
   routeIndex = 0;
+  layerType = 0;
+  olPopupText = "";
 
-  // 地图资源图层
+  // 普通地图资源图层
   tileLayer = new TileLayer({
     // source: new OSM(), //不建议使用，实际开发中会有问题
     source: new XYZ({
-      url: "http://wprd0{1-4}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&style=7&x={x}&y={y}&z={z}", // 高德瓦片资源
+      url: "http://wprd0{1-4}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&style=7&x={x}&y={y}&z={z}", // 高德瓦片资源-普通地图
     }),
+    visible: true,
+  });
+
+  // 混合地图资源图层
+  tileLayer2 = new TileLayer({
+    source: new XYZ({
+      url: "http://webst02.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}", // 高德瓦片资源-混合模式
+    }),
+    visible: false,
   });
 
   // 区域绘制图层
@@ -63,7 +75,7 @@ export default class olMap {
   // 实例化地图
   initMap() {
     this.map = new Map({
-      layers: [this.tileLayer, this.vectorLayer], // 图层
+      layers: [this.tileLayer, this.tileLayer2, this.vectorLayer], // 图层
       view: new View({
         projection: "EPSG:4326", //坐标类型：EPSG：4326：经纬度坐标，EPSG:3857：投影坐标
         center: [104.07, 30.6], //地图中心点
@@ -86,6 +98,12 @@ export default class olMap {
         }),
       ]),
     });
+
+    // 添加绘图区域可编辑功能
+    // 创建Modify控件
+    let modify = new Modify({ source: this.source });
+    // 将控件添加至Map对象中
+    this.map.addInteraction(modify);
   }
 
   // 缩小
@@ -106,13 +124,14 @@ export default class olMap {
   //圆形绘制
   drawCircle() {
     if (this.draw !== undefined && this.draw !== null) {
-      this.map.removeInteraction(this.draw);
+      this.map.removeInteraction(this.draw); // 绘制开始先删除之前的图层
     }
     this.draw = new Draw({
+      // 通过Draw开启一个绘制图层
       source: this.source,
       type: "Circle",
     });
-    this.map.addInteraction(this.draw);
+    this.map.addInteraction(this.draw); // 将绘制的图层添加到地图中
     this.draw.on("drawend", function (e: any) {
       // 绘制结束时获取数据
     });
@@ -257,4 +276,154 @@ export default class olMap {
     let p2 = this.carPoints[j];
     return Math.atan2(p2[0] - p1[0], p2[1] - p1[1]);
   };
+
+  // 图层切换
+  changeMapLayer() {
+    if (this.layerType === 0) {
+      this.layerType = 1;
+      this.map.getLayers().item(0).setVisible(false);
+      this.map.getLayers().item(1).setVisible(true);
+    } else {
+      this.layerType = 0;
+      this.map.getLayers().item(1).setVisible(false);
+      this.map.getLayers().item(0).setVisible(true);
+    }
+  }
+
+  // // 添加标注
+  // addMarker(position: number[]) {
+  //   // 添加标注
+  //   let marker = new Overlay({
+  //     // 标注位置
+  //     position: fromLonLat(position, "EPSG:4326"),
+  //     // 标注相对与锚点的方位
+  //     positioning: "center-center",
+  //     // 充当标注的DOM元素
+  //     element: document.getElementById("marker-icon") as HTMLElement,
+  //     autoPan: true,
+  //   });
+  //   this.map.addOverlay(marker);
+  // }
+
+  // 实现标注聚合
+  polymerization(dataSource: any[]) {
+    var features = new Array(dataSource.length);
+    for (var i = 0; i < dataSource.length; i++) {
+      // var coordinate = ol.proj.transform([lat[i], lon[i]], 'EPSG:4326', 'EPSG:3857');
+      //  var coordinate = ol.proj.transform([lat[i], lon[i]], 'EPSG:4326', 'EPSG:4326');
+      var coordinate = [dataSource[i][0], dataSource[i][1]];
+      coordinate.map(parseFloat);
+      //  console.log("转换后经纬度：" + coordinate);
+
+      var attr = {
+        userName: "测试",
+      };
+      features[i] = new Feature({
+        geometry: new Point(coordinate),
+        attribute: attr,
+      });
+    }
+
+    var source = new VectorSource({
+      features: features,
+    });
+    var clusterSource = new Cluster({
+      distance: 40,
+      source: source,
+    });
+
+    //加载聚合标注的矢量图层
+    var styleCache = {} as any;
+    var layerVetor = new VectorLayer({
+      source: clusterSource,
+      style: function (feature) {
+        var size = feature.get("features").length;
+        var style = styleCache[size];
+        if (!style) {
+          style = [
+            new Style({
+              image: new Icon(
+                /** @type {olx.style.IconOptions} */ {
+                  anchor: [0.5, 10],
+                  anchorOrigin: "top-right",
+                  anchorXUnits: "fraction",
+                  anchorYUnits: "pixels",
+                  offsetOrigin: "top-right",
+                  offset: [0, 1], //偏移量设置
+                  scale: 1.2, //图标缩放比例
+                  opacity: 1, //透明度
+                  src: new URL(
+                    "../../assets/position-icon.png",
+                    import.meta.url
+                  ).href, //图标的url
+                }
+              ),
+              text: new Text({
+                font: "12px Calibri,sans-serif",
+                text: size.toString(),
+                fill: new Fill({
+                  color: "#eee",
+                }),
+              }),
+            }),
+          ];
+          styleCache[size] = style;
+        }
+        return style;
+      },
+    });
+
+    this.map.addLayer(layerVetor);
+
+    const _this = this;
+    this.map.on("click", function (evt) {
+      var coordinate = evt.coordinate;
+      var content = document.getElementById("popup-content");
+      var popup: any = document.getElementById("popup");
+      var info_popup: any = document.getElementById("info_popup");
+      /****************************************************/
+      //判断当前单击处是否有要素，捕获到要素时弹出popup
+      let feature = _this.map.forEachFeatureAtPixel(
+        evt.pixel,
+        function (feature, layerVetor) {
+          return feature;
+        }
+      );
+      if (feature) {
+        //捕捉到要素
+        if (feature.getProperties().features) {
+          //聚合情况下
+          if (feature.getProperties().features.length == 1) {
+            //只有一个要素
+
+            // layer.msg("聚合该处有1个要素")
+            let featuerInfo =
+              feature.getProperties().features[0].values_.attribute;
+            content!.innerHTML = ""; //清空popup的内容容器
+
+            content!.innerHTML = featuerInfo; //在popup中加载当前要素的具体信息
+            if (popup!.getPosition() == undefined) {
+              popup!.setPosition(coordinate); //设置popup的位置
+            }
+          } else {
+            info_popup!.setPosition(undefined);
+          }
+        } else {
+          info_popup!.setPosition(undefined);
+        }
+      } else {
+        info_popup!.setPosition(undefined);
+      }
+      /******************************************/
+    });
+
+    /**
+     * 为map添加鼠标移动事件监听，当指向标注时改变鼠标光标状态
+     */
+    this.map.on("pointermove", function (e) {
+      var pixel = _this.map.getEventPixel(e.originalEvent);
+      var hit = _this.map.hasFeatureAtPixel(pixel);
+      _this.map.getTargetElement().style.cursor = hit ? "pointer" : "";
+    });
+  }
 }
