@@ -131,7 +131,10 @@ export default class olMap {
       type: "Circle",
     });
     this.map.addInteraction(this.draw); // 将绘制的图层添加到地图中
+    let _this = this;
     this.draw.on("drawend", function (e: any) {
+      // 结束当前绘制
+      _this.map.removeInteraction(_this.draw);
       // 绘制结束时获取数据
     });
   }
@@ -146,7 +149,10 @@ export default class olMap {
       type: "Polygon",
     });
     this.map.addInteraction(this.draw);
+    let _this = this;
     this.draw.on("drawend", function (e: any) {
+      // 结束当前绘制
+      _this.map.removeInteraction(_this.draw);
       // 绘制结束时获取数据
     });
   };
