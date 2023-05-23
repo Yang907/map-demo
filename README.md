@@ -4,7 +4,6 @@ This template should help get you started developing with Vue 3 in Vite.
 
 # Branch Description
 main is the main branch, if you want to see source code, please pull this branch.
-map-pages is the branch to configure pages that everyone can see.
 
 # Online address
 https://yang907.github.io/map-demo/
