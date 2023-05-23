@@ -30,12 +30,14 @@
       ><span class="operation">缩小</span>
     </div>
   </div>
-  <div id="popup" class="ol-popup">
-    <a href="#" id="popup-closer" class="ol-popup-closer"></a>
-    <div id="popup-title" class="popup-title"></div>
-    <div id="popup-content" class="popup-content"></div>
+  <div id="pup-container" class="pup-container">
+    <div id="popup" class="ol-popup">
+      <a href="#" id="popup-closer" class="ol-popup-closer"></a>
+      <div id="popup-title" class="popup-title"></div>
+      <div id="popup-position" class="popup-position"></div>
+      <div id="popup-content" class="popup-content"></div>
+    </div>
   </div>
-  <div id="info_popup"></div>
 </template>
 
 <script setup lang="ts">
@@ -51,6 +53,7 @@ import {
   Location,
 } from "@element-plus/icons-vue";
 import markers from "./data/marker";
+import geometry from "./data/trajectory";
 
 const map = ref();
 
@@ -82,9 +85,9 @@ const changeLayer = () => {
 //添加矢量图层
 const addTrack = async () => {
   //画轨迹线
-  await map.value.drawLine();
+  await map.value.drawLine(geometry);
   //开始动
-  map.value.moveStart();
+  map.value.moveStart(geometry);
 };
 
 const showMarker = () => {
@@ -137,5 +140,30 @@ body {
 .operation {
   font-size: 12px;
   display: block;
+}
+.pup-container {
+  padding-bottom: 30px;
+  opacity: 1;
+  display: none;
+}
+.ol-popup {
+  background-color: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  padding: 8px;
+  border-radius: 4px;
+  position: relative;
+}
+
+.ol-popup::after {
+  content: "";
+  display: inline-block;
+  width: 20px;
+  height: 10px;
+  position: absolute;
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+  background-color: rgba(0, 0, 0, 0.8);
+  bottom: -10px;
+  left: 50%;
+  transform: translateX(-10px);
 }
 </style>

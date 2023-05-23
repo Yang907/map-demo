@@ -9,7 +9,6 @@ import { Draw, Modify } from "ol/interaction";
 import { Vector as VectorSource, Cluster } from "ol/source";
 import { Style, Stroke, Fill, Circle, Icon, Text } from "ol/style";
 import { LineString, Point } from "ol/geom";
-import geometry from "./data/trajectory";
 
 import { transform, fromLonLat } from "ol/proj";
 
@@ -153,7 +152,7 @@ export default class olMap {
   };
 
   //轨迹线  把每个点连起来
-  drawLine = () => {
+  drawLine = (geometry: any[]) => {
     this.routeLayer = new VectorLayer({
       source: new VectorSource({
         features: [],
@@ -161,29 +160,60 @@ export default class olMap {
     });
     this.map.addLayer(this.routeLayer);
 
+    //起始点位标志
+    let start = new Feature({
+      geometry: new Point(geometry[0]),
+    });
+    start.setStyle(
+      new Style({
+        image: new Icon({
+          src: new URL("../../assets/start.png", import.meta.url).href, //起始图标的url
+          scale: 0.7,
+          anchor: [0.5, 1],
+        }),
+      })
+    );
+    //结束点位标志
+    let end = new Feature({
+      geometry: new Point(geometry[geometry.length - 1]),
+    });
+    end.setStyle(
+      new Style({
+        image: new Icon({
+          src: new URL("../../assets/end.png", import.meta.url).href, //终点图标的url
+          scale: 0.7,
+          anchor: [0.5, 1],
+        }),
+      })
+    );
+    this.routeLayer.getSource().addFeature(start);
+    this.routeLayer.getSource().addFeature(end);
+
     let comDots = [] as any[];
     let wireFeature = {} as any;
-    geometry.forEach((item: any) => {
+    geometry.forEach((item: any, index: number) => {
       comDots.push(item);
       wireFeature = new Feature({
         geometry: new LineString(comDots),
       });
+
       wireFeature.setStyle(
         new Style({
           stroke: new Stroke({
             // 设置边的样式
             color: "rgb(21, 106, 158)",
-            width: 3,
+            width: 5,
           }),
         })
       );
+
       this.routeLayer.getSource().addFeatures([wireFeature]);
     });
   };
 
   //创建小车这个要素
 
-  moveStart = () => {
+  moveStart = (geometry: any[]) => {
     //坐标转换
     this.dotsData = geometry.map((item) => {
       return transform(item, "EPSG:3857", "EPSG:4326");
@@ -199,8 +229,8 @@ export default class olMap {
     this.featureMove.setStyle(
       new Style({
         image: new Icon({
-          src: "https://openlayers.org/en/v4.6.5/examples/data/icon.png",
-          scale: 0.85,
+          src: new URL("../../assets/car.png", import.meta.url).href, //图标的url
+          scale: 0.7,
           anchor: [0.5, 0.5],
           rotation: this.countRotate(),
         }),
@@ -215,13 +245,13 @@ export default class olMap {
   timeStart() {
     this.timer = setInterval(() => {
       if (this.routeIndex + 1 >= this.carPoints.length) {
-        //重头开始
-        this.routeIndex = 0;
-        //移除要素
+        //   //重头开始
+        //   this.routeIndex = 0;
+        //   //移除要素
         this.routeLayer.getSource().removeFeature(this.featureMove);
-        clearInterval(this.timer);
-        //重复运动
-        open(); //自动开启功能
+        //   clearInterval(this.timer);
+        //   //重复运动
+        //   open(); //自动开启功能
         return;
       }
       //到转折点旋转角度
@@ -290,33 +320,17 @@ export default class olMap {
     }
   }
 
-  // // 添加标注
-  // addMarker(position: number[]) {
-  //   // 添加标注
-  //   let marker = new Overlay({
-  //     // 标注位置
-  //     position: fromLonLat(position, "EPSG:4326"),
-  //     // 标注相对与锚点的方位
-  //     positioning: "center-center",
-  //     // 充当标注的DOM元素
-  //     element: document.getElementById("marker-icon") as HTMLElement,
-  //     autoPan: true,
-  //   });
-  //   this.map.addOverlay(marker);
-  // }
-
   // 实现标注聚合
   polymerization(dataSource: any[]) {
     var features = new Array(dataSource.length);
     for (var i = 0; i < dataSource.length; i++) {
-      // var coordinate = ol.proj.transform([lat[i], lon[i]], 'EPSG:4326', 'EPSG:3857');
-      //  var coordinate = ol.proj.transform([lat[i], lon[i]], 'EPSG:4326', 'EPSG:4326');
-      var coordinate = [dataSource[i][0], dataSource[i][1]];
-      coordinate.map(parseFloat);
-      //  console.log("转换后经纬度：" + coordinate);
+      var coordinate = [dataSource[i][0], dataSource[i][1]].map(parseFloat);
 
       var attr = {
         userName: "测试",
+        info: "测试点位显示信息",
+        coordinate: fromLonLat(coordinate, "EPSG:4326"),
+        type: "marker",
       };
       features[i] = new Feature({
         geometry: new Point(coordinate),
@@ -328,7 +342,7 @@ export default class olMap {
       features: features,
     });
     var clusterSource = new Cluster({
-      distance: 40,
+      distance: 30,
       source: source,
     });
 
@@ -360,7 +374,7 @@ export default class olMap {
               ),
               text: new Text({
                 font: "12px Calibri,sans-serif",
-                text: size.toString(),
+                text: size > 1 ? size.toString() : "",
                 fill: new Fill({
                   color: "#eee",
                 }),
@@ -376,45 +390,53 @@ export default class olMap {
     this.map.addLayer(layerVetor);
 
     const _this = this;
+    var content = document.getElementById("popup-content");
+    var title = document.getElementById("popup-title");
+    var container: any = document.getElementById("pup-container");
+    var position: any = document.getElementById("popup-position");
+    var overlay = new Overlay({
+      element: container,
+      autoPan: true,
+      positioning: "bottom-center",
+    });
     this.map.on("click", function (evt) {
-      var coordinate = evt.coordinate;
-      var content = document.getElementById("popup-content");
-      var popup: any = document.getElementById("popup");
-      var info_popup: any = document.getElementById("info_popup");
-      /****************************************************/
-      //判断当前单击处是否有要素，捕获到要素时弹出popup
+      title!.innerHTML = ``;
+      content!.innerHTML = ``;
+      position!.innerHTML = ``;
+      // 捕捉feature，用于判断是否点击的是标注点
       let feature = _this.map.forEachFeatureAtPixel(
         evt.pixel,
         function (feature, layerVetor) {
           return feature;
         }
       );
+
       if (feature) {
-        //捕捉到要素
-        if (feature.getProperties().features) {
-          //聚合情况下
-          if (feature.getProperties().features.length == 1) {
-            //只有一个要素
-
-            // layer.msg("聚合该处有1个要素")
-            let featuerInfo =
-              feature.getProperties().features[0].values_.attribute;
-            content!.innerHTML = ""; //清空popup的内容容器
-
-            content!.innerHTML = featuerInfo; //在popup中加载当前要素的具体信息
-            if (popup!.getPosition() == undefined) {
-              popup!.setPosition(coordinate); //设置popup的位置
-            }
-          } else {
-            info_popup!.setPosition(undefined);
-          }
+        var attribute = feature.getProperties().features[0].values_.attribute;
+        if (attribute.type !== "marker") return;
+        let pLen = feature.getProperties().features.length;
+        if (pLen === 1) {
+          container.style.display = "block";
+          var pixel = _this.map.getEventPixel(evt.originalEvent);
+          _this.map.forEachFeatureAtPixel(pixel, function (feature) {
+            title!.innerHTML = `<p>项目名称: ${attribute.userName}</p>`;
+            content!.innerHTML = `<p>项目描述: ${attribute.info}</p>`;
+            position!.innerHTML = `<p>项目坐标: ${attribute.coordinate}</p>`;
+            overlay.setPosition(attribute.coordinate);
+            _this.map.addOverlay(overlay);
+          });
         } else {
-          info_popup!.setPosition(undefined);
+          container.style.display = "block";
+          var pixel = _this.map.getEventPixel(evt.originalEvent);
+          _this.map.forEachFeatureAtPixel(pixel, function (feature) {
+            content!.innerHTML = `<p>点位聚合个数: ${pLen}</p>`;
+            overlay.setPosition(attribute.coordinate);
+            _this.map.addOverlay(overlay);
+          });
         }
       } else {
-        info_popup!.setPosition(undefined);
+        container.style.display = "none";
       }
-      /******************************************/
     });
 
     /**
