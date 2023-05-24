@@ -4,17 +4,18 @@ import Feature from "ol/Feature";
 import Overlay from "ol/Overlay";
 import { Tile as TileLayer, Vector as VectorLayer } from "ol/layer"; // 瓦片渲染方法
 import { XYZ, OSM } from "ol/source"; // 瓦片资源
-import { ScaleLine, defaults as defaultControls } from "ol/control";
-import { Draw, Modify } from "ol/interaction";
+import { defaults as defaultControls } from "ol/control";
+import { Draw, Modify, Select } from "ol/interaction";
 import { Vector as VectorSource, Cluster } from "ol/source";
 import { Style, Stroke, Fill, Circle, Icon, Text } from "ol/style";
 import { LineString, Point } from "ol/geom";
+import { click, platformModifierKeyOnly } from "ol/events/condition";
 
 import { transform, fromLonLat } from "ol/proj";
 
 export default class olMap {
-  constructor() {
-    this.initMap();
+  constructor(controls: any) {
+    this.initMap(controls);
   }
   map = {} as Map;
 
@@ -30,6 +31,16 @@ export default class olMap {
   routeIndex = 0;
   layerType = 0;
   olPopupText = "";
+  selectedFeature = [];
+
+  select = new Select({
+    multi: true, //单选
+    condition: click,
+    toggleCondition: platformModifierKeyOnly,
+    filter: (Feature, layer) => {
+      return layer === this.vectorLayer;
+    },
+  });
 
   // 普通地图资源图层
   tileLayer = new TileLayer({
@@ -72,7 +83,7 @@ export default class olMap {
   });
 
   // 实例化地图
-  initMap() {
+  initMap(controls: any) {
     this.map = new Map({
       layers: [this.tileLayer, this.tileLayer2, this.vectorLayer], // 图层
       view: new View({
@@ -87,15 +98,10 @@ export default class olMap {
 
       //加载控件到地图容器中
       controls: defaultControls({
-        zoom: false, // 不显示放大缩小按钮
-        rotate: false, // 不显示指北针控件
-        attribution: false, // 不显示右下角地图信息控件
-      }).extend([
-        new ScaleLine({
-          //设置比例尺单位，degrees、imperial、us、nautical、metric（度量单位）
-          units: "metric",
-        }),
-      ]),
+        zoom: controls.zoom ?? false, // 不显示放大缩小按钮
+        rotate: controls.roate ?? false, // 不显示指北针控件
+        attribution: controls.attribution ?? true, // 显示右下角地图信息控件
+      }).extend([...controls.otherControls]),
     });
 
     // 添加绘图区域可编辑功能
@@ -418,6 +424,7 @@ export default class olMap {
       );
 
       if (feature) {
+        if (!feature.getProperties().features) return;
         var attribute = feature.getProperties().features[0].values_.attribute;
         if (attribute.type !== "marker") return;
         let pLen = feature.getProperties().features.length;
@@ -452,6 +459,23 @@ export default class olMap {
       var pixel = _this.map.getEventPixel(e.originalEvent);
       var hit = _this.map.hasFeatureAtPixel(pixel);
       _this.map.getTargetElement().style.cursor = hit ? "pointer" : "";
+    });
+  }
+
+  handleSelected(callback: any) {
+    // 添加选中交互
+    this.select.setActive(true);
+    this.map.addInteraction(this.select);
+    this.select.on("select", (evt) => {
+      this.selectedFeature = evt.target.getFeatures().getArray();
+      callback(this.selectedFeature);
+    });
+  }
+
+  // 删除选中区域
+  deleteFeature(callback: any) {
+    this.selectedFeature.forEach((item: any) => {
+      this.vectorLayer.getSource()?.removeFeature(item);
     });
   }
 }
